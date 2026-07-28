@@ -1,0 +1,22 @@
+# qmake build artifacts
+Makefile
+Makefile.*
+.qmake.stash
+*.moc
+moc_*.cpp
+moc_*.h
+moc_predefs.h
+ui_*.h
+qrc_*.cpp
+object_script.*
+*.obj
+*.o
+*.exp
+target_wrapper.bat
+
+# Build outputs
+/lib/
+/debug/
+/release/
+/tests/debug/
+/tests/release/
