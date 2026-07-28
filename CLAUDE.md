@@ -31,10 +31,15 @@ Every type here is usable two ways, mirroring QmlConcerto's own pattern:
   `RegRepRegistration(engine)` (from `regrep_registration.h`) once after creating the `QQmlEngine`. This is
   what `tests/main.cpp` does, and is the simpler path for anything that isn't itself a QML plugin.
 
-Both paths register the same things: `ReportsReceiver` as a creatable QML type, `report` as an uncreatable
-QML value type (lowercase — Qt6 requires value-type/gadget QML names to start lowercase, unlike QObject
-types), and two context properties: `ConstantRegistry` (call `.declare()`/`.lookup()`/etc.) and `Constants`
-(the `QQmlPropertyMap` for dot-notation access, e.g. `Constants.shutter_stuck.description`).
+Both paths register the same things: `ReportsReceiver` as a creatable QML type, plus `qRegisterMetaType` for
+`ConstantEntry`/`Report` (needed so they can travel through signals/properties as QVariant) and two context
+properties: `ConstantRegistry` (call `.declare()`/`.lookup()`/etc.) and `Constants` (the `QQmlPropertyMap` for
+dot-notation access, e.g. `Constants.shutter_stuck.description`). `Report` is **not** registered as an
+addressable QML type (no `qmlRegisterUncreatableType`) — nothing needs to name it as a type, only read its
+fields off a `ReportsReceiver.onReportReceived` argument, and `qmlRegisterUncreatableType` requires an
+uppercase-starting name or the plugin fails to load at runtime ("type names must begin with an uppercase
+letter") even though value-type-style lowercase names only get a *warning* under direct/source-included
+registration — the two code paths enforce this differently, so don't rely on the warning-only behavior.
 
 `Reporter` and `ReportRouter` have **no QML API** by design — `Reporter` is meant to be embedded as a plain
 C++ member (e.g. a future `Phrase m_reporter{"Sequence/Withdrawal"}`), and `ReportRouter` is an internal
@@ -109,8 +114,12 @@ constantEntry)`) — this class is not part of the library and shouldn't be trea
   inventing a parallel registry class — that's the whole point of the `(type, code, source)` generalization.
 - Anything meant to be embedded as a member (like `Reporter`) should stay a plain, cheap-to-copy C++ class
   with no QObject/QML surface; only give it a QML API if there's an actual QML use case, not preemptively.
-- New QML value types (Q_GADGET, not QObject) must be registered with a lowercase QML name (see the
-  `report` registration) — Qt6's `qt.qml.typeregistration` category warns on capitalized value-type names.
+- Don't register a Q_GADGET value type as an addressable QML type (`qmlRegisterUncreatableType` or similar)
+  unless something genuinely needs to name it as a type — `qRegisterMetaType` alone is enough for it to flow
+  through signals/properties as QVariant and have its fields read from QML. If you do need one,
+  `qmlRegisterUncreatableType` requires an uppercase-starting name — a lowercase one only warns under
+  direct/source-included registration but hard-fails ("type names must begin with an uppercase letter") when
+  loaded as a compiled plugin, so don't rely on the warning-only behavior to conclude lowercase is safe.
 - When adding a new source file, it needs an entry in **both** `regrep.pri`'s `HEADERS`/`SOURCES` and, if it
   has QML-visible behavior, wiring in both `RegRepPlugin.cpp` and `regrep_registration.h` — the two
   consumption paths are kept in sync manually, there's no single source of truth for registration.
