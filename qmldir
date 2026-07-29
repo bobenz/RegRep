@@ -1,2 +1,2 @@
 module RegRep
-plugin RegRep
+plugin RegRep ../lib
